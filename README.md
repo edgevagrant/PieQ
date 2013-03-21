@@ -29,14 +29,13 @@ To get the queue running without queuing a new item (e.g. on application start):
 WorkQueue.Instance.ResumeProcessing(); 
 ```
 
-To get the queue running without queuing a new item (e.g. on application exit):
+To shut the queue down gracefully
 ```
 WorkQueue.Instance.CeaseProcessing(); //this will block until the executing task has finished. 
 ```
 
 
-
-If you want your task to handle resume/cease gracefully, you can override the following
+If you want your tasks to handle resume/cease gracefully, you can override the following
 ```
     public abstract class WorkItem
     {
