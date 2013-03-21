@@ -9,9 +9,9 @@ using Newtonsoft.Json;
 namespace PieQ.Tests
 {
     [Serializable]
-    public class WaitForSignalMessage : Message
+    public class WaitForSignalWorkItem : WorkItem
     {
-        public WaitForSignalMessage()
+        public WaitForSignalWorkItem()
         {
             Waiter = new ManualResetEvent(false);
         }

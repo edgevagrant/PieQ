@@ -46,8 +46,8 @@
     <Compile Include="Disposable.cs" />
     <Compile Include="FailedState.cs" />
     <Compile Include="JobHost.cs" />
-    <Compile Include="Message.cs" />
-    <Compile Include="MessageState.cs" />
+    <Compile Include="WorkItem.cs" />
+    <Compile Include="WorkItemState.cs" />
     <Compile Include="ProcessingState.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PrivateSetterDefaultContractResolver.cs" />

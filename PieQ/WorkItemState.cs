@@ -2,21 +2,21 @@
 
 namespace PieQ
 {
-    public abstract class MessageState
+    public abstract class WorkItemState
     {
         public virtual string Description { get { return this.GetType().Name.Replace("State", ""); } }
     }
-    public class QueuedState : MessageState
+    public class QueuedState : WorkItemState
     {
     }
-    public class SucceededState : MessageState
+    public class SucceededState : WorkItemState
     {
     }
-    public class ProcessingState : MessageState
+    public class ProcessingState : WorkItemState
     {
     }
 
-    public class FailedState : MessageState
+    public class FailedState : WorkItemState
     {
         public FailedState(string message)
         {

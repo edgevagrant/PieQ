@@ -20,37 +20,37 @@ namespace PieQ
                 TypeNameHandling = TypeNameHandling.Objects,
                 ContractResolver = new PrivateSetterDefaultContractResolver(),
             };
-            var messages = File.Exists(_filePath) ? JsonConvert.DeserializeObject<Message[]>(File.ReadAllText(_filePath), JsonSerializerSettings) : new Message[] { };
-            this._queue = new List<Message>(messages);
+            var messages = File.Exists(_filePath) ? JsonConvert.DeserializeObject<WorkItem[]>(File.ReadAllText(_filePath), JsonSerializerSettings) : new WorkItem[] { };
+            this._queue = new List<WorkItem>(messages);
         }
         private bool working = false;
 
-        public IEnumerable<Message> MessagesSnapshot
+        public IEnumerable<WorkItem> MessagesSnapshot
         {
             get
             {
                 lock (_queue)
                 {
-                    Func<Message, Message> clone = (m)=>
+                    Func<WorkItem, WorkItem> clone = (m)=>
                     {
                         var json = JsonConvert.SerializeObject(m, Newtonsoft.Json.Formatting.Indented, JsonSerializerSettings);
-                        return JsonConvert.DeserializeObject<Message>(json, JsonSerializerSettings);
+                        return JsonConvert.DeserializeObject<WorkItem>(json, JsonSerializerSettings);
                     };
                     return _queue.Select(clone).ToArray();
                 }
             }
         }
 
-        readonly List<Message> _queue = new List<Message>();
+        readonly List<WorkItem> _queue = new List<WorkItem>();
 
         
-        public void AddMessage(Message message)
+        public void AddMessage(WorkItem workItem)
         {
             lock (_queue)
             {
-                message.MessageState = new QueuedState();
-                message.ReceivedAt = DateTime.UtcNow;
-                _queue.Add(message);
+                workItem.WorkItemState = new QueuedState();
+                workItem.ReceivedAt = DateTime.UtcNow;
+                _queue.Add(workItem);
                 SaveQueue(_filePath);
                 if (!working) BeginWork();
             }
@@ -73,25 +73,25 @@ namespace PieQ
 
         public void BeginWork()
         {
-            Message next = null;
+            WorkItem next = null;
             lock (_queue)
             {
-                var processing = _queue.Where(m => m.MessageState is ProcessingState);
+                var processing = _queue.Where(m => m.WorkItemState is ProcessingState);
                 foreach (var message in processing)
                 {
-                    message.MessageState = new FailedState("Was processing when work begun");
+                    message.WorkItemState = new FailedState("Was processing when work begun");
                 }
                 if (processing.Any())
                 {
                     SaveQueue(_filePath);
                 }
 
-                next = _queue.FirstOrDefault(m => m.MessageState is QueuedState);
+                next = _queue.FirstOrDefault(m => m.WorkItemState is QueuedState);
 
                 if (next != null)
                 {
                     working = true;
-                    next.MessageState = new ProcessingState();
+                    next.WorkItemState = new ProcessingState();
                     SaveQueue(_filePath);
                 }
             }
@@ -102,18 +102,18 @@ namespace PieQ
 
         }
 
-        private void ProcessMessage(Message message)
+        private void ProcessMessage(WorkItem workItem)
         {
             var sw = new Stopwatch();
             sw.Start();
             try
             {
-                message.Execute();
+                workItem.Execute();
                 sw.Stop();
                 using (LockScope())
                 {
-                    message.ExecutionDuration = sw.Elapsed;
-                    message.MessageState = new SucceededState();
+                    workItem.ExecutionDuration = sw.Elapsed;
+                    workItem.WorkItemState = new SucceededState();
                     working = false;
                     SaveQueue(_filePath);
                 }
@@ -125,9 +125,9 @@ namespace PieQ
 
                 using (LockScope())
                 {
-                    message.ExecutionDuration = sw.Elapsed;
+                    workItem.ExecutionDuration = sw.Elapsed;
                     var innerEx = ex.InnerException != null ? ("Inner:\r\n" + ex.InnerException.ToString() + "\r\nOuter:\r\n") : "";
-                    message.MessageState = new FailedState(innerEx + ex.ToString());
+                    workItem.WorkItemState = new FailedState(innerEx + ex.ToString());
                     working = false;
                     SaveQueue(_filePath);
                 }
