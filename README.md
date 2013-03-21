@@ -1,7 +1,7 @@
 PieQ
 ====
 
-Easy-as-pie embedded persistent async work queue for .NET
+Easy-as-pie embedded persistent async work queue for .NET.
 
 Create classes that inherit from 
 
