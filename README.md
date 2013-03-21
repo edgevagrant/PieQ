@@ -41,9 +41,9 @@ If you want your task to handle resume/cease gracefully, you can override the fo
     public abstract class WorkItem
     {
         ...
-        protected virtual void Suspend(){}; //will be called by CeaseProcessing. This should try to stop the job.
-        protected virtual void Resume(){}; //will be called when restarting after a non-graceful shutdown 
-        protected virtual void Recover(){}; //will be called when restarting after a non-graceful shutdown (e.g. a crash)
+        protected void Suspend(){}; //will be called when trying to shutdown gracefully. This should try to stop the job.
+        protected void Resume(){}; //will be called when restarting after a non-graceful shutdown 
+        protected void Recover(){}; //will be called when restarting after a non-graceful shutdown (e.g. a crash)
         ...
     }
 ```
