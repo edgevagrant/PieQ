@@ -33,4 +33,11 @@ namespace PieQ
             }
         }
     }
+    public class NotRecoveredAfterShutdownState : FailedState
+    {
+        public NotRecoveredAfterShutdownState()
+            : base("Could not recover task after shutdown")
+        {
+        }
+    } 
 }

@@ -13,8 +13,8 @@ namespace PieQ.Tests
             instance.Clear();
             var message1 = new WaitForSignalWorkItem();
             var message2 = new WaitForSignalWorkItem();
-            instance.AddMessage(message1);
-            instance.AddMessage(message2);
+            instance.Queue(message1);
+            instance.Queue(message2);
             Assert.IsInstanceOf<ProcessingState>(message1.WorkItemState);
             Assert.IsInstanceOf<QueuedState>(message2.WorkItemState);
             message1.Waiter.Set();
@@ -26,7 +26,17 @@ namespace PieQ.Tests
             Assert.IsInstanceOf<SucceededState>(message2.WorkItemState);
             Assert.True(instance.MessagesSnapshot.All(m => m.WorkItemState is SucceededState));
             Assert.True(instance.MessagesSnapshot.All(m => m is WaitForSignalWorkItem));
-
         }
+        [Test]
+        public void CanSuspendAndResumeProcessing()
+        {
+            var instance = new WorkQueue();
+            instance.Clear();
+            var message1 = new WaitForSignalWorkItem();
+            instance.Queue(message1);
+            Assert.IsInstanceOf<ProcessingState>(message1.WorkItemState);
+            instance.CeaseProcessing();
+        }
+
     }
 }

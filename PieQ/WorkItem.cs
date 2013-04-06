@@ -1,13 +1,35 @@
 ﻿using System;
+using System.Threading;
 
 namespace PieQ
 {
-    [Serializable]
     public abstract class WorkItem
     {
-        public DateTimeOffset ReceivedAt { get; internal set; }
-        public WorkItemState WorkItemState {  get; internal set; }
-        public TimeSpan? ExecutionDuration { get; internal set; }
+        public string Type { get { return this.GetType().Name.Replace("WorkItem", ""); } }
+
+        public DateTimeOffset ReceivedAt {  get; set; }
+        public WorkItemState WorkItemState { get; set; }
+
+        public TimeSpan? ExecutionDuration {  get; set; }
+        public string MessageId { get; set; }
+
         public abstract void Execute();
+
+        protected void Resume()
+        {
+        }
+
+        protected void Recover()
+        {
+            if (!(this.WorkItemState is ProcessingState))
+            {
+                throw new Exception("Recovery can only occur when a task is not running and is Processing");
+            }
+            this.WorkItemState = new FailedState("");
+        }
+
+        protected internal void Suspend()
+        {
+        }
     }
 }

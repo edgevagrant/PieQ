@@ -16,13 +16,17 @@ namespace PieQ
         public WorkQueue()
         {
             JsonSerializerSettings = new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.Objects,
-                ContractResolver = new PrivateSetterDefaultContractResolver(),
-            };
-            var messages = File.Exists(_filePath) ? JsonConvert.DeserializeObject<WorkItem[]>(File.ReadAllText(_filePath), JsonSerializerSettings) : new WorkItem[] { };
+                {
+                    TypeNameHandling = TypeNameHandling.Objects,
+                    ContractResolver = new PrivateSetterDefaultContractResolver(),
+                };
+            var messages = File.Exists(_filePath)
+                               ? JsonConvert.DeserializeObject<WorkItem[]>(File.ReadAllText(_filePath),
+                                                                           JsonSerializerSettings)
+                               : new WorkItem[] {};
             this._queue = new List<WorkItem>(messages);
         }
+
         private bool working = false;
 
         public IEnumerable<WorkItem> MessagesSnapshot
@@ -31,20 +35,21 @@ namespace PieQ
             {
                 lock (_queue)
                 {
-                    Func<WorkItem, WorkItem> clone = (m)=>
-                    {
-                        var json = JsonConvert.SerializeObject(m, Newtonsoft.Json.Formatting.Indented, JsonSerializerSettings);
-                        return JsonConvert.DeserializeObject<WorkItem>(json, JsonSerializerSettings);
-                    };
+                    Func<WorkItem, WorkItem> clone = (m) =>
+                        {
+                            var json = JsonConvert.SerializeObject(m, Newtonsoft.Json.Formatting.Indented,
+                                                                   JsonSerializerSettings);
+                            return JsonConvert.DeserializeObject<WorkItem>(json, JsonSerializerSettings);
+                        };
                     return _queue.Select(clone).ToArray();
                 }
             }
         }
 
-        readonly List<WorkItem> _queue = new List<WorkItem>();
+        private readonly List<WorkItem> _queue = new List<WorkItem>();
 
-        
-        public void AddMessage(WorkItem workItem)
+
+        public void Queue(WorkItem workItem)
         {
             lock (_queue)
             {
@@ -58,17 +63,19 @@ namespace PieQ
 
         private void SaveQueue(string filePath)
         {
-            File.WriteAllText(filePath, JsonConvert.SerializeObject(_queue.ToArray(), Newtonsoft.Json.Formatting.Indented, JsonSerializerSettings));
+            File.WriteAllText(filePath,
+                              JsonConvert.SerializeObject(_queue.ToArray(), Newtonsoft.Json.Formatting.Indented,
+                                                          JsonSerializerSettings));
         }
 
 
         public IDisposable LockScope()
         {
             return new Disposable(() => Monitor.Enter(_queue), () =>
-            {
-                SaveQueue(_filePath);
-                Monitor.Exit(_queue);
-            });
+                {
+                    SaveQueue(_filePath);
+                    Monitor.Exit(_queue);
+                });
         }
 
         public void BeginWork()
@@ -126,7 +133,9 @@ namespace PieQ
                 using (LockScope())
                 {
                     workItem.ExecutionDuration = sw.Elapsed;
-                    var innerEx = ex.InnerException != null ? ("Inner:\r\n" + ex.InnerException.ToString() + "\r\nOuter:\r\n") : "";
+                    var innerEx = ex.InnerException != null
+                                      ? ("Inner:\r\n" + ex.InnerException.ToString() + "\r\nOuter:\r\n")
+                                      : "";
                     workItem.WorkItemState = new FailedState(innerEx + ex.ToString());
                     working = false;
                     SaveQueue(_filePath);
@@ -136,23 +145,41 @@ namespace PieQ
         }
 
 
-        public  readonly JobHost _jobHost = a => a();
+        public readonly JobHost _jobHost = a => a();
+
         private string _filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "workqueue.json");
+
         public JsonSerializerSettings JsonSerializerSettings { get; set; }
 
 
         private static readonly Lazy<WorkQueue> LazyInstance = new Lazy<WorkQueue>(() => new WorkQueue());
-        public static WorkQueue Instance { get { return LazyInstance.Value; } }
+
+        public static WorkQueue Instance
+        {
+            get { return LazyInstance.Value; }
+        }
 
         public void Clear()
         {
-            using(this.LockScope())
+            using (this.LockScope())
             {
                 if (working)
                 {
                     throw new Exception("Cannot clear while working");
                 }
                 _queue.Clear();
+            }
+        }
+
+        public void CeaseProcessing()
+        {
+            using (this.LockScope())
+            {
+                var runningItem = _queue.SingleOrDefault(i => i.WorkItemState is ProcessingState);
+                if (runningItem != null)
+                {
+                    runningItem.Suspend();
+                }
             }
         }
     }
