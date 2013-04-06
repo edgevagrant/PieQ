@@ -147,7 +147,7 @@ namespace PieQ
 
         public readonly JobHost _jobHost = a => a();
 
-        private string _filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "workqueue.json");
+        private string _filePath = Path.Combine(AppDomain.CurrentDomain.GetData("DataDirectory").ToString(), "workqueue.json");
 
         public JsonSerializerSettings JsonSerializerSettings { get; set; }
 
