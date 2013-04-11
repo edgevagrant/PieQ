@@ -11,7 +11,7 @@ namespace PieQ
         public WorkItemState WorkItemState { get; set; }
 
         public TimeSpan? ExecutionDuration {  get; set; }
-        public string MessageId { get; set; }
+        public string WorkItemId { get; set; }
 
         public abstract void Execute();
 

@@ -29,7 +29,7 @@ namespace PieQ
 
         private bool working = false;
 
-        public IEnumerable<WorkItem> MessagesSnapshot
+        public IEnumerable<WorkItem> Snapshot
         {
             get
             {
@@ -69,9 +69,9 @@ namespace PieQ
         }
 
 
-        public IDisposable LockScope()
+        public WorkQueueSession Session()
         {
-            return new Disposable(() => Monitor.Enter(_queue), () =>
+            return new WorkQueueSession(this, () => Monitor.Enter(_queue), () =>
                 {
                     SaveQueue(_filePath);
                     Monitor.Exit(_queue);
@@ -117,7 +117,7 @@ namespace PieQ
             {
                 workItem.Execute();
                 sw.Stop();
-                using (LockScope())
+                using (Session())
                 {
                     workItem.ExecutionDuration = sw.Elapsed;
                     workItem.WorkItemState = new SucceededState();
@@ -130,7 +130,7 @@ namespace PieQ
             {
                 sw.Stop();
 
-                using (LockScope())
+                using (Session())
                 {
                     workItem.ExecutionDuration = sw.Elapsed;
                     var innerEx = ex.InnerException != null
@@ -147,7 +147,7 @@ namespace PieQ
 
         public readonly JobHost _jobHost = a => a();
 
-        private string _filePath = Path.Combine(AppDomain.CurrentDomain.GetData("DataDirectory").ToString(), "workqueue.json");
+        private string _filePath = Path.Combine((AppDomain.CurrentDomain.GetData("DataDirectory") ?? Directory.GetCurrentDirectory()).ToString(), "workqueue.json");
 
         public JsonSerializerSettings JsonSerializerSettings { get; set; }
 
@@ -161,7 +161,7 @@ namespace PieQ
 
         public void Clear()
         {
-            using (this.LockScope())
+            using (this.Session())
             {
                 if (working)
                 {
@@ -173,7 +173,7 @@ namespace PieQ
 
         public void CeaseProcessing()
         {
-            using (this.LockScope())
+            using (this.Session())
             {
                 var runningItem = _queue.SingleOrDefault(i => i.WorkItemState is ProcessingState);
                 if (runningItem != null)
@@ -182,5 +182,18 @@ namespace PieQ
                 }
             }
         }
+        public class WorkQueueSession : Disposable
+        {
+            private readonly WorkQueue _queue;
+
+            public WorkQueueSession(WorkQueue queue, Action begin, Action dispose)
+                : base(begin, dispose)
+            {
+                _queue = queue;
+            }
+            public IList<WorkItem> WorkItems { get { return _queue._queue; }}
+        }
     }
+
+    
 }
