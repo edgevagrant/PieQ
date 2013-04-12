@@ -24,8 +24,8 @@ namespace PieQ.Tests
             message2.Waiter.Set();
             Thread.Sleep(1000);
             Assert.IsInstanceOf<SucceededState>(message2.WorkItemState);
-            Assert.True(instance.Snapshot.All(m => m.WorkItemState is SucceededState));
-            Assert.True(instance.Snapshot.All(m => m is WaitForSignalWorkItem));
+            Assert.True(instance.QueueSnapshot.All(m => m.WorkItemState is SucceededState));
+            Assert.True(instance.QueueSnapshot.All(m => m is WaitForSignalWorkItem));
         }
         [Test]
         public void CanSuspendAndResumeProcessing()

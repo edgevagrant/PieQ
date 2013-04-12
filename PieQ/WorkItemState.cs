@@ -18,12 +18,14 @@ namespace PieQ
 
     public class FailedState : WorkItemState
     {
-        public FailedState(string message)
+        public FailedState(string message, string stackTrace)
         {
             this.ErrorMessage = message;
+            StackTrace = stackTrace;
         }
-
-        string ErrorMessage { get; set; }
+        public FailedState(){}
+        public string ErrorMessage { get; set; }
+        public string StackTrace { get; set; }
 
         public override string Description
         {
@@ -36,7 +38,7 @@ namespace PieQ
     public class NotRecoveredAfterShutdownState : FailedState
     {
         public NotRecoveredAfterShutdownState()
-            : base("Could not recover task after shutdown")
+            : base("Could not recover task after shutdown", "")
         {
         }
     } 

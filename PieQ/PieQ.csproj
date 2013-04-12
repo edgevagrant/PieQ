@@ -44,7 +44,6 @@
   <ItemGroup>
     <Compile Include="Processed.cs" />
     <Compile Include="Disposable.cs" />
-    <Compile Include="FailedState.cs" />
     <Compile Include="JobHost.cs" />
     <Compile Include="WorkItem.cs" />
     <Compile Include="WorkItemState.cs" />

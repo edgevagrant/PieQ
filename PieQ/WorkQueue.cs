@@ -20,30 +20,29 @@ namespace PieQ
                     TypeNameHandling = TypeNameHandling.Objects,
                     ContractResolver = new PrivateSetterDefaultContractResolver(),
                 };
-            var messages = File.Exists(_filePath)
-                               ? JsonConvert.DeserializeObject<WorkItem[]>(File.ReadAllText(_filePath),
-                                                                           JsonSerializerSettings)
-                               : new WorkItem[] {};
+            WorkItem[] messages;
+            if (File.Exists(_filePath))
+            {
+                var json = File.ReadAllText(_filePath);
+                messages = JsonConvert.DeserializeObject<WorkItem[]>(json, JsonSerializerSettings);
+                QueueSnapshot = JsonConvert.DeserializeObject<WorkItem[]>(json, JsonSerializerSettings);
+            }
+            else
+            {
+                messages = new WorkItem[] {};
+                QueueSnapshot = new WorkItem[]{};
+            }
             this._queue = new List<WorkItem>(messages);
         }
 
         private bool working = false;
 
-        public IEnumerable<WorkItem> Snapshot
+        public IEnumerable<WorkItem> QueueSnapshot { get; private set; }
+
+        private WorkItem CloneQueue(WorkItem m)
         {
-            get
-            {
-                lock (_queue)
-                {
-                    Func<WorkItem, WorkItem> clone = (m) =>
-                        {
-                            var json = JsonConvert.SerializeObject(m, Newtonsoft.Json.Formatting.Indented,
-                                                                   JsonSerializerSettings);
-                            return JsonConvert.DeserializeObject<WorkItem>(json, JsonSerializerSettings);
-                        };
-                    return _queue.Select(clone).ToArray();
-                }
-            }
+            var json = JsonConvert.SerializeObject(m, Newtonsoft.Json.Formatting.Indented, JsonSerializerSettings);
+            return JsonConvert.DeserializeObject<WorkItem>(json, JsonSerializerSettings);
         }
 
         private readonly List<WorkItem> _queue = new List<WorkItem>();
@@ -63,13 +62,18 @@ namespace PieQ
 
         private void SaveQueue(string filePath)
         {
-            File.WriteAllText(filePath,
-                              JsonConvert.SerializeObject(_queue.ToArray(), Newtonsoft.Json.Formatting.Indented,
-                                                          JsonSerializerSettings));
+            var json = JsonConvert.SerializeObject(_queue.ToArray(), Formatting.Indented, JsonSerializerSettings);
+            var hashCode = json.GetHashCode();
+            if (hashCode != jsonhash)
+            {
+                jsonhash = hashCode;
+                File.WriteAllText(filePath, json);
+                QueueSnapshot = JsonConvert.DeserializeObject<WorkItem[]>(json, JsonSerializerSettings);
+            }
         }
 
 
-        public WorkQueueSession Session()
+        public WorkQueueSession OpenSession()
         {
             return new WorkQueueSession(this, () => Monitor.Enter(_queue), () =>
                 {
@@ -86,7 +90,7 @@ namespace PieQ
                 var processing = _queue.Where(m => m.WorkItemState is ProcessingState);
                 foreach (var message in processing)
                 {
-                    message.WorkItemState = new FailedState("Was processing when work begun");
+                    message.WorkItemState = new FailedState("Was processing when work begun", "");
                 }
                 if (processing.Any())
                 {
@@ -117,7 +121,7 @@ namespace PieQ
             {
                 workItem.Execute();
                 sw.Stop();
-                using (Session())
+                using (OpenSession())
                 {
                     workItem.ExecutionDuration = sw.Elapsed;
                     workItem.WorkItemState = new SucceededState();
@@ -130,13 +134,13 @@ namespace PieQ
             {
                 sw.Stop();
 
-                using (Session())
+                using (OpenSession())
                 {
                     workItem.ExecutionDuration = sw.Elapsed;
                     var innerEx = ex.InnerException != null
                                       ? ("Inner:\r\n" + ex.InnerException.ToString() + "\r\nOuter:\r\n")
                                       : "";
-                    workItem.WorkItemState = new FailedState(innerEx + ex.ToString());
+                    workItem.WorkItemState = new FailedState(ex.Message, ex.StackTrace);
                     working = false;
                     SaveQueue(_filePath);
                 }
@@ -153,6 +157,7 @@ namespace PieQ
 
 
         private static readonly Lazy<WorkQueue> LazyInstance = new Lazy<WorkQueue>(() => new WorkQueue());
+        private int jsonhash;
 
         public static WorkQueue Instance
         {
@@ -161,7 +166,7 @@ namespace PieQ
 
         public void Clear()
         {
-            using (this.Session())
+            using (this.OpenSession())
             {
                 if (working)
                 {
@@ -173,7 +178,7 @@ namespace PieQ
 
         public void CeaseProcessing()
         {
-            using (this.Session())
+            using (this.OpenSession())
             {
                 var runningItem = _queue.SingleOrDefault(i => i.WorkItemState is ProcessingState);
                 if (runningItem != null)
