@@ -104,12 +104,12 @@ namespace PieQ
             }
             if (next != null)
             {
-                Task.Factory.StartNew(() => _jobHost(() => ProcessMessage(next)));
+                Task.Factory.StartNew(() => _jobHost(() => ProcessWorkItem(next)));
             }
 
         }
 
-        private void ProcessMessage(WorkItem workItem)
+        private void ProcessWorkItem(WorkItem workItem)
         {
             var sw = new Stopwatch();
             sw.Start();
