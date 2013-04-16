@@ -35,15 +35,9 @@ namespace PieQ
             this._queue = new List<WorkItem>(messages);
         }
 
-        private bool working = false;
 
         public IEnumerable<WorkItem> QueueSnapshot { get; private set; }
-
-        private WorkItem CloneQueue(WorkItem m)
-        {
-            var json = JsonConvert.SerializeObject(m, Newtonsoft.Json.Formatting.Indented, JsonSerializerSettings);
-            return JsonConvert.DeserializeObject<WorkItem>(json, JsonSerializerSettings);
-        }
+ 
 
         private readonly List<WorkItem> _queue = new List<WorkItem>();
 
@@ -56,7 +50,7 @@ namespace PieQ
                 workItem.ReceivedAt = DateTime.UtcNow;
                 _queue.Add(workItem);
                 SaveQueue(_filePath);
-                if (!working) BeginWork();
+                BeginWork();
             }
         }
 
@@ -82,27 +76,34 @@ namespace PieQ
                 });
         }
 
+        [JsonIgnore] private List<WorkItem> executingItems;
+
         public void BeginWork()
         {
             WorkItem next = null;
             lock (_queue)
             {
-                var processing = _queue.Where(m => m.WorkItemState is ProcessingState);
-                foreach (var message in processing)
+                if (executingItems == null)
                 {
-                    message.WorkItemState = new FailedState("Was processing when work begun", "");
-                }
-                if (processing.Any())
-                {
-                    SaveQueue(_filePath);
-                }
+                    var processing = _queue.Where(m => m.WorkItemState is ProcessingState).ToArray();
+                    foreach (var message in processing)
+                    {
+                        message.WorkItemState = new FailedState("Was processing when work begun", "");
+                    }
 
-                next = _queue.FirstOrDefault(m => m.WorkItemState is QueuedState);
+                    if (processing.Any())
+                    {
+                        SaveQueue(_filePath);
+                    }
+                    executingItems = new List<WorkItem>();
+                }
+                next = _queue.Where(queued => executingItems.All(executing => executing.QueueKey != queued.QueueKey))
+                    .FirstOrDefault(m => m.WorkItemState is QueuedState);
 
                 if (next != null)
                 {
-                    working = true;
                     next.WorkItemState = new ProcessingState();
+                    executingItems.Add(next);
                     SaveQueue(_filePath);
                 }
             }
@@ -125,10 +126,7 @@ namespace PieQ
                 {
                     workItem.ExecutionDuration = sw.Elapsed;
                     workItem.WorkItemState = new SucceededState();
-                    working = false;
-                    SaveQueue(_filePath);
                 }
-
             }
             catch (Exception ex)
             {
@@ -141,9 +139,12 @@ namespace PieQ
                                       ? ("Inner:\r\n" + ex.InnerException.ToString() + "\r\nOuter:\r\n")
                                       : "";
                     workItem.WorkItemState = new FailedState(ex.Message, ex.StackTrace);
-                    working = false;
-                    SaveQueue(_filePath);
                 }
+            }
+            finally
+            {
+                executingItems.Remove(workItem);
+                SaveQueue(_filePath);
             }
             BeginWork();
         }
@@ -168,7 +169,7 @@ namespace PieQ
         {
             using (this.OpenSession())
             {
-                if (working)
+                if (executingItems != null && executingItems.Any())
                 {
                     throw new Exception("Cannot clear while working");
                 }

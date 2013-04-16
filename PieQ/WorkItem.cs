@@ -5,9 +5,12 @@ namespace PieQ
 {
     public abstract class WorkItem
     {
+        private string _queueKey;
+
         public WorkItem()
         {
             WorkItemId = Guid.NewGuid().ToString();
+            _queueKey = Guid.NewGuid().ToString();
         }
         public virtual string Type { get { return this.GetType().Name.Replace("WorkItem", ""); } }
 
@@ -16,6 +19,11 @@ namespace PieQ
 
         public virtual TimeSpan? ExecutionDuration { get; set; }
         public virtual string WorkItemId { get; set; }
+
+        public virtual string QueueKey
+        {
+            get { return _queueKey; }
+        }
 
         public abstract void Execute();
 

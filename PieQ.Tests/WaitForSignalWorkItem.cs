@@ -11,6 +11,11 @@ namespace PieQ.Tests
     [Serializable]
     public class WaitForSignalWorkItem : WorkItem
     {
+        public override string QueueKey
+        {
+            get { return this.GetType().FullName; }
+        }
+
         public WaitForSignalWorkItem()
         {
             Waiter = new ManualResetEvent(false);
